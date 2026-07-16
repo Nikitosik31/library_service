@@ -17,6 +17,10 @@ from borrowings.serializers import (
     BorrowingsSerializer,
     BorrowingsCreateSerializer,
 )
+from notifications.telegram_helper import send_telegram_notification
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class BorrowingsViewSet(
@@ -54,9 +58,23 @@ class BorrowingsViewSet(
             book = serializer.validated_data["book"]
             book.inventory -= 1
             book.save()
-            serializer.save(user=self.request.user)
+            borrowing = serializer.save(user=self.request.user)
 
-    @action(detail=True, methods=["post"], url_name="return", url_path="return")
+        text = (
+            f"📚 New borrowing created!\n\n"
+            f"User: {borrowing.user.email}\n"
+            f"Book: {borrowing.book.title}\n"
+            f"Borrow date: {borrowing.borrow_date}\n"
+            f"Expected return: {borrowing.expected_return_date}"
+        )
+        try:
+            send_telegram_notification(text)
+        except Exception:
+            logger.exception("Failed to send Telegram notification")
+
+    @action(
+        detail=True, methods=["post"], url_name="return", url_path="return"
+    )
     def borrowing_return(self, request, pk=None):
         borrowing = self.get_object()
         if borrowing.actual_return_date:
