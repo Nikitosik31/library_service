@@ -5,6 +5,7 @@ from rest_framework.mixins import (
     ListModelMixin,
     RetrieveModelMixin,
 )
+from rest_framework.permissions import IsAuthenticated
 
 from borrowings.models import Borrowing
 from borrowings.serializers import (
@@ -21,6 +22,22 @@ class BorrowingsViewSet(
 ):
     queryset = Borrowing.objects.select_related("user", "book")
     serializer_class = BorrowingsSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        queryset = Borrowing.objects.select_related("user", "book")
+
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(user=self.request.user)
+
+        is_active = self.request.query_params.get("is_active")
+        if is_active == "true":
+            queryset = queryset.filter(actual_return_date__isnull=True)
+        user_id = self.request.query_params.get("user_id")
+        if user_id and self.request.user.is_staff:
+            queryset = queryset.filter(user_id=user_id)
+
+        return queryset
 
     def get_serializer_class(self):
         if self.action == "create":
