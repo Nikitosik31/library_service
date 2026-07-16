@@ -1,5 +1,10 @@
+from datetime import date
+
 from django.db import transaction
-from rest_framework import viewsets
+from rest_framework.response import Response
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.mixins import (
     CreateModelMixin,
     ListModelMixin,
@@ -50,3 +55,19 @@ class BorrowingsViewSet(
             book.inventory -= 1
             book.save()
             serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["post"], url_name="return", url_path="return")
+    def borrowing_return(self, request, pk=None):
+        borrowing = self.get_object()
+        if borrowing.actual_return_date:
+            raise ValidationError("This borrowing has already been returned.")
+        with transaction.atomic():
+            borrowing.actual_return_date = date.today()
+            borrowing.save()
+            borrowing.book.inventory += 1
+            borrowing.book.save()
+
+        return Response(
+            {"detail": "Book returned successfully."},
+            status=status.HTTP_200_OK,
+        )
