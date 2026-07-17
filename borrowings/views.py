@@ -61,7 +61,7 @@ class BorrowingsViewSet(
             book.inventory -= 1
             book.save()
             borrowing = serializer.save(user=self.request.user)
-            create_stripe_session(borrowing)
+            create_stripe_session(borrowing, self.request)
 
         text = (
             f"📚 New borrowing created!\n\n"
