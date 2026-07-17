@@ -179,3 +179,5 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=9, minute=0),
     },
 }
+
+STRIPE_KEY = os.getenv("STRIPE_KEY")

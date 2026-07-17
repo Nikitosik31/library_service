@@ -20,6 +20,8 @@ from borrowings.serializers import (
 from notifications.telegram_helper import send_telegram_notification
 import logging
 
+from payments.stripe_helper import create_stripe_session
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,6 +61,7 @@ class BorrowingsViewSet(
             book.inventory -= 1
             book.save()
             borrowing = serializer.save(user=self.request.user)
+            create_stripe_session(borrowing)
 
         text = (
             f"📚 New borrowing created!\n\n"
