@@ -2,14 +2,11 @@ import stripe
 from django.conf import settings
 from django.urls import reverse
 
-from payments.models import Payment, PaymentStatus, PaymentType
+from payments.models import Payment, PaymentStatus
 
 
-def create_stripe_session(borrowing, request):
+def create_stripe_session(borrowing, request, money_to_pay, payment_type):
     stripe.api_key = settings.STRIPE_KEY
-
-    days = (borrowing.expected_return_date - borrowing.borrow_date).days
-    sum_money = days * borrowing.book.daily_fee
 
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
@@ -17,7 +14,7 @@ def create_stripe_session(borrowing, request):
             {
                 "price_data": {
                     "currency": "usd",
-                    "unit_amount": int(sum_money * 100),
+                    "unit_amount": int(money_to_pay * 100),
                     "product_data": {
                         "name": f"Borrowing: {borrowing.book.title}",
                     },
@@ -37,10 +34,10 @@ def create_stripe_session(borrowing, request):
 
     payment = Payment.objects.create(
         status=PaymentStatus.PENDING,
-        type=PaymentType.PAYMENT,
+        type=payment_type,
         borrowing=borrowing,
         session_url=session.url,
         session_id=session.id,
-        money_to_pay=sum_money,
+        money_to_pay=money_to_pay,
     )
     return payment

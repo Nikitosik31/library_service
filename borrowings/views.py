@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.conf import settings
 from django.db import transaction
 from rest_framework.response import Response
 from rest_framework import viewsets, status
@@ -20,6 +21,7 @@ from borrowings.serializers import (
 from notifications.telegram_helper import send_telegram_notification
 import logging
 
+from payments.models import PaymentType
 from payments.stripe_helper import create_stripe_session
 
 logger = logging.getLogger(__name__)
@@ -61,7 +63,13 @@ class BorrowingsViewSet(
             book.inventory -= 1
             book.save()
             borrowing = serializer.save(user=self.request.user)
-            create_stripe_session(borrowing, self.request)
+            days = (
+                borrowing.expected_return_date - borrowing.borrow_date
+            ).days
+            money_to_pay = days * borrowing.book.daily_fee
+            create_stripe_session(
+                borrowing, self.request, money_to_pay, PaymentType.PAYMENT
+            )
 
         text = (
             f"📚 New borrowing created!\n\n"
@@ -82,11 +90,27 @@ class BorrowingsViewSet(
         borrowing = self.get_object()
         if borrowing.actual_return_date:
             raise ValidationError("This borrowing has already been returned.")
+
         with transaction.atomic():
             borrowing.actual_return_date = date.today()
             borrowing.save()
             borrowing.book.inventory += 1
             borrowing.book.save()
+
+            if borrowing.actual_return_date > borrowing.expected_return_date:
+                days_overdue = (
+                    borrowing.actual_return_date
+                    - borrowing.expected_return_date
+                ).days
+                money_to_pay = (
+                    days_overdue
+                    * borrowing.book.daily_fee
+                    * settings.FINE_MULTIPLIER
+                )
+
+                create_stripe_session(
+                    borrowing, self.request, money_to_pay, PaymentType.FINE
+                )
 
         return Response(
             {"detail": "Book returned successfully."},
