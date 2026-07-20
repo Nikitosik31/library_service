@@ -9,7 +9,7 @@ from payments.serializers import PaymentSerializer
 
 class BorrowingsSerializer(serializers.ModelSerializer):
     book = BookSerializer()
-    payment = PaymentSerializer(many=True, read_only=True)
+    payments = PaymentSerializer(many=True, read_only=True)
 
     class Meta:
         model = Borrowing
@@ -20,7 +20,7 @@ class BorrowingsSerializer(serializers.ModelSerializer):
             "actual_return_date",
             "book",
             "user",
-            "payment",
+            "payments",
         )
 
 

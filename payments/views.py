@@ -44,7 +44,14 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
         session_id = request.query_params.get("session_id")
         if session_id:
-            session_retrieve = stripe.checkout.Session.retrieve(session_id)
+            try:
+                session_retrieve = stripe.checkout.Session.retrieve(session_id)
+            except stripe.error.InvalidRequestError:
+                return Response(
+                    {"detail": "Session not found."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             if session_retrieve.payment_status == "paid":
                 payment = Payment.objects.get(session_id=session_id)
                 payment.status = PaymentStatus.PAID
@@ -55,6 +62,7 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
                 {"detail": "Payment not completed yet."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
         return Response(
             {"detail": "Payment not completed yet."},
             status=status.HTTP_400_BAD_REQUEST,
