@@ -28,13 +28,3 @@ def sample_book(**params):
     }
     defaults.update(params)
     return Book.objects.create(**defaults)
-
-
-def sample_borrowing(**params):
-    defaults = {
-        "expected_return_date": date.today() + timedelta(days=4),
-        "book": sample_book(),
-        "user": sample_user(),
-    }
-    defaults.update(params)
-    return Borrowing.objects.create(**defaults)
