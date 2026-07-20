@@ -53,7 +53,14 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
                 )
 
             if session_retrieve.payment_status == "paid":
-                payment = Payment.objects.get(session_id=session_id)
+                try:
+                    payment = Payment.objects.get(session_id=session_id)
+                except Payment.DoesNotExist:
+                    return Response(
+                        {"detail": "Payment not found."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 payment.status = PaymentStatus.PAID
                 payment.save()
 

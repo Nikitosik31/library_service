@@ -2,6 +2,8 @@ from datetime import date
 
 from django.conf import settings
 from django.db import transaction
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.response import Response
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -13,6 +15,7 @@ from rest_framework.mixins import (
 )
 from rest_framework.permissions import IsAuthenticated
 
+from books.models import Book
 from borrowings.models import Borrowing
 from borrowings.serializers import (
     BorrowingsSerializer,
@@ -59,7 +62,11 @@ class BorrowingsViewSet(
 
     def perform_create(self, serializer):
         with transaction.atomic():
-            book = serializer.validated_data["book"]
+            book = Book.objects.select_for_update().get(
+                pk=serializer.validated_data["book"].id
+            )
+            if book.inventory < 1:
+                raise ValidationError("This book is not available")
             book.inventory -= 1
             book.save()
             borrowing = serializer.save(user=self.request.user)
@@ -116,3 +123,20 @@ class BorrowingsViewSet(
             {"detail": "Book returned successfully."},
             status=status.HTTP_200_OK,
         )
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="user_id",
+                type=OpenApiTypes.INT,
+                description="Filter by user id (ex. ?user_id=2)",
+            ),
+            OpenApiParameter(
+                name="is_active",
+                type=OpenApiTypes.STR,
+                description="Filter by active status (ex. ?is_active=true)",
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
