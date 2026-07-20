@@ -13,6 +13,7 @@ from rest_framework.mixins import (
 )
 from rest_framework.permissions import IsAuthenticated
 
+from books.models import Book
 from borrowings.models import Borrowing
 from borrowings.serializers import (
     BorrowingsSerializer,
@@ -59,7 +60,11 @@ class BorrowingsViewSet(
 
     def perform_create(self, serializer):
         with transaction.atomic():
-            book = serializer.validated_data["book"]
+            book = Book.objects.select_for_update().get(
+                pk=serializer.validated_data["book"].id
+            )
+            if book.inventory < 1:
+                raise ValidationError("This book is not available")
             book.inventory -= 1
             book.save()
             borrowing = serializer.save(user=self.request.user)
